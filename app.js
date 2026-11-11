@@ -19,7 +19,24 @@ async function load(buffer){
 let exploreSeq=0;
 async function explore(){const seq=++exploreSeq;try{const d=await call('explore',{sheet:$('sheet').value,row:$('row').value});if(seq!==exploreSeq)return;rowChoices=d.rows;filterRows(d.selected);cells=d.cells;$('unit').textContent=d.unit;$('explore-caption').textContent=$('sheet').value+' / 행: '+d.selected+' '+d.name;renderCells();}catch(e){$('status').textContent=e.message;}}
 function filterRows(selected){const q=$('row-search').value.trim();options($('row'),rowChoices.filter(r=>(r.code+' '+r.name).includes(q)));if([...$('row').options].some(o=>o.value===selected))$('row').value=selected;}
-function renderCells(){const q=$('col-search').value.trim();$('cells').replaceChildren(...cells.filter(c=>(c.code+' '+c.name).includes(q)).map(c=>{const tr=document.createElement('tr');for(const v of [c.code,c.name,c.value===null?'빈 셀':typeof c.value==='number'?fmt(c.value):c.value])tr.append(text('td',v));return tr;}));}
+function renderCells(){
+  const q=$('col-search').value.trim();
+  const shown=cells.filter(c=>(c.code+' '+c.name).includes(q));
+  const nums=shown.filter(c=>typeof c.value==='number').map(c=>Math.abs(c.value));
+  const max=Math.max(...nums,1);
+  $('cells').replaceChildren(...shown.map(c=>{
+    const tr=document.createElement('tr');
+    for(const v of [c.code,c.name,c.value===null?'빈 셀':typeof c.value==='number'?fmt(c.value):c.value])tr.append(text('td',v));
+    if(typeof c.value==='number'){
+      const t=Math.sqrt(Math.min(Math.abs(c.value)/max,1));
+      const td=tr.lastChild;
+      td.style.background='hsl(215 70% '+(95-t*60)+'%)';
+      td.style.color=t>0.55?'#fff':'#000';
+    }
+    return tr;
+  }));
+}
+
 $('sheet').onchange=()=>{$('row-search').value='';$('row').replaceChildren();explore();};$('row').onchange=explore;
 $('row-search').oninput=()=>{filterRows();if($('row').value)explore();else{$('cells').replaceChildren();$('explore-caption').textContent='일치하는 행이 없습니다.';}};
 $('col-search').oninput=renderCells;
