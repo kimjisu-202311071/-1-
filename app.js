@@ -90,3 +90,39 @@ $('load-basic').onclick=async()=>{
   if($('sheet').disabled){button.disabled=false;button.textContent='기본부문 다시 불러오기';}
  }
 };
+function drawHeatmap(){
+  const rows=result.rows.slice(0,30);
+  const cols=[['production','생산'],['imports','수입'],['valueAdded','부가가치']];
+  const nameW=240,cw=130,rh=26,headH=40,pad=10;
+  const c=$('heatmap');
+  c.width=nameW+cw*cols.length+pad*2;
+  c.height=headH+rh*rows.length+pad*2;
+  const g=c.getContext('2d');
+  g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);
+  g.font='13px sans-serif';g.textBaseline='middle';
+  g.fillStyle='#000';g.textAlign='center';
+  cols.forEach(([k,label],j)=>g.fillText(label+' (백만원)',pad+nameW+cw*j+cw/2,pad+headH/2));
+  const maxes={};
+  cols.forEach(([k])=>maxes[k]=Math.max(...rows.map(r=>Math.abs(r[k])),1));
+  rows.forEach((r,i)=>{
+    const y=pad+headH+rh*i;
+    g.fillStyle='#000';g.textAlign='left';
+    g.fillText(r.name.slice(0,16),pad,y+rh/2);
+    cols.forEach(([k],j)=>{
+      const t=Math.sqrt(Math.min(Math.abs(r[k])/maxes[k],1));
+      const x=pad+nameW+cw*j;
+      g.fillStyle='hsl(215 70% '+(95-t*60)+'%)';
+      g.fillRect(x,y,cw-2,rh-2);
+      g.fillStyle=t>0.55?'#fff':'#000';
+      g.textAlign='right';
+      g.fillText(fmt(r[k]),x+cw-8,y+rh/2);
+    });
+  });
+}
+$('save-img').onclick=()=>{
+  if(!result)return;
+  const a=document.createElement('a');
+  a.href=$('heatmap').toDataURL('image/png');
+  a.download='heatmap.png';
+  a.click();
+};
