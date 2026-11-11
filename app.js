@@ -90,35 +90,56 @@ $('load-basic').onclick=async()=>{
   if($('sheet').disabled){button.disabled=false;button.textContent='기본부문 다시 불러오기';}
  }
 };
-function drawHeatmap(){
-  const rows=result.rows.slice(0,30);
-  const cols=[['production','생산'],['imports','수입'],['valueAdded','부가가치']];
-  const nameW=240,cw=130,rh=26,headH=40,pad=10;
-  const c=$('heatmap');
-  c.width=nameW+cw*cols.length+pad*2;
-  c.height=headH+rh*rows.length+pad*2;
-  const g=c.getContext('2d');
+const HM={cols:[['production','생산'],['imports','수입'],['valueAdded','부가가치']],cw:130,rh:5,head:34,pad:10};
+let hmRows=[],hmMax={},hmHover=null;
+
+function paintHeatmap(){
+  const {cols,cw,rh,head,pad}=HM;
+  const c=$('heatmap'),g=c.getContext('2d');
   g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);
-  g.font='13px sans-serif';g.textBaseline='middle';
-  g.fillStyle='#000';g.textAlign='center';
-  cols.forEach(([k,label],j)=>g.fillText(label+' (백만원)',pad+nameW+cw*j+cw/2,pad+headH/2));
-  const maxes={};
-  cols.forEach(([k])=>maxes[k]=Math.max(...rows.map(r=>Math.abs(r[k])),1));
-  rows.forEach((r,i)=>{
-    const y=pad+headH+rh*i;
-    g.fillStyle='#000';g.textAlign='left';
-    g.fillText(r.name.slice(0,16),pad,y+rh/2);
+  g.font='13px sans-serif';g.textBaseline='middle';g.textAlign='center';g.fillStyle='#000';
+  cols.forEach(([k,label],j)=>g.fillText(label,pad+cw*j+cw/2,pad+head/2));
+  hmRows.forEach((r,i)=>{
     cols.forEach(([k],j)=>{
-      const t=Math.sqrt(Math.min(Math.abs(r[k])/maxes[k],1));
-      const x=pad+nameW+cw*j;
+      const t=Math.sqrt(Math.min(Math.abs(r[k])/hmMax[k],1));
       g.fillStyle='hsl(215 70% '+(95-t*60)+'%)';
-      g.fillRect(x,y,cw-2,rh-2);
-      g.fillStyle=t>0.55?'#fff':'#000';
-      g.textAlign='right';
-      g.fillText(fmt(r[k]),x+cw-8,y+rh/2);
+      g.fillRect(pad+cw*j,pad+head+rh*i,cw-2,rh);
     });
   });
+  if(hmHover){
+    g.strokeStyle='#e11';g.lineWidth=2;
+    g.strokeRect(pad+cw*hmHover.j,pad+head+rh*hmHover.i-1,cw-2,rh+2);
+  }
 }
+
+function drawHeatmap(){
+  const {cols,cw,rh,head,pad}=HM;
+  hmRows=result.rows;
+  const c=$('heatmap');
+  c.width=pad*2+cw*cols.length;
+  c.height=pad*2+head+rh*hmRows.length;
+  hmMax={};
+  cols.forEach(([k])=>hmMax[k]=Math.max(...hmRows.map(r=>Math.abs(r[k])),1));
+  hmHover=null;
+  paintHeatmap();
+  $('hm-info').textContent='칸 위에 마우스를 올려 보세요.';
+}
+
+$('heatmap').onmousemove=e=>{
+  if(!result)return;
+  const {cols,cw,rh,head,pad}=HM;
+  const c=$('heatmap'),b=c.getBoundingClientRect();
+  const x=(e.clientX-b.left)*c.width/b.width;
+  const y=(e.clientY-b.top)*c.height/b.height;
+  const j=Math.floor((x-pad)/cw),i=Math.floor((y-pad-head)/rh);
+  if(j<0||j>=cols.length||i<0||i>=hmRows.length)return;
+  if(hmHover&&hmHover.i===i&&hmHover.j===j)return;
+  hmHover={i,j};
+  paintHeatmap();
+  const r=hmRows[i];
+  $('hm-info').textContent=(i+1)+'위 · '+r.code+' '+r.name+'  |  생산 '+fmt(r.production)+'  |  수입 '+fmt(r.imports)+'  |  부가가치 '+fmt(r.valueAdded)+' (백만원)  |  선택한 열: '+cols[j][1];
+};
+
 $('save-img').onclick=()=>{
   if(!result)return;
   const a=document.createElement('a');
